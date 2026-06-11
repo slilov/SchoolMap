@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Училища в София</title>
+
+  <!-- Leaflet CSS (локален) -->
+  <link rel="stylesheet" href="lib/leaflet.min.css" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>Училища в София</h1>
+    </div>
+
+    <div id="sidebar-filters">
+      <div class="filter-section-title">
+        <h2>Слоеве</h2>
+      </div>
+      <div class="layer-toggles">
+        <label class="toggle-label">
+          <input type="checkbox" id="toggle-districts" checked />
+          <span>Административни райони</span>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="toggle-schools" checked />
+          <span>Училища</span>
+        </label>
+      </div>
+
+      <div class="filter-section-title">
+        <h2>Търсене</h2>
+      </div>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Име на училище, адрес..." />
+        <span class="search-icon">🔍</span>
+      </div>
+
+      <div class="filter-section-title">
+        <h2>Финансиране</h2>
+      </div>
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" class="filter-finansiran" value="1" checked />
+          <span>Държавни</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="filter-finansiran" value="2" checked />
+          <span>Общински</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="filter-finansiran" value="3" checked />
+          <span>Частни</span>
+        </label>
+      </div>
+
+      <div class="filter-section-title">
+        <h2>Вид училище</h2>
+      </div>
+      <div class="select-container">
+        <select id="filter-type">
+          <option value="all">Всички видове</option>
+          <option value="1">🟢 Начално училище</option>
+          <option value="2">🔵 Основно училище</option>
+          <option value="3">🟠 Средно училище</option>
+          <option value="4">🟣 Профилирани / специализирани</option>
+          <option value="5">🔴 Професионална гимназия</option>
+          <option value="6">🟤 Специално / помощно училище</option>
+        </select>
+      </div>
+
+      <div class="filter-section-title">
+        <h2>Профил / Направление</h2>
+      </div>
+      <div class="tag-group">
+        <button class="tag-btn" data-profile="math">📐 Мат. / ИТ</button>
+        <button class="tag-btn" data-profile="lang">🌐 Езиков</button>
+        <button class="tag-btn" data-profile="art">🎨 Изкуства</button>
+        <button class="tag-btn" data-profile="sport">⚽ Спортен</button>
+      </div>
+
+      <div class="filter-results">
+        Показани: <strong id="visible-count">0</strong> от <span id="total-count">0</span> училища
+      </div>
+    </div>
+
+    <div id="sidebar-info">
+      <p id="info-placeholder">Кликнете върху училище или район за повече информация.</p>
+      <div id="info-detail" class="hidden"></div>
+    </div>
+
+    <div id="sidebar-footer">
+      <p>Данни: <a href="https://sofiaplan.bg" target="_blank" rel="noopener noreferrer">Sofiaplan</a> &amp; <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></p>
+    </div>
+  </div>
+
+  <div id="map" style="height:100vh;flex:1;"></div>
+
+  <!-- Leaflet JS (локален) -->
+  <script src="lib/leaflet.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
