@@ -6,17 +6,33 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::Manager;
 
-fn data_dir(app: &tauri::AppHandle) -> PathBuf {
-    app.path().resource_dir().unwrap().join("data")
+fn data_dir(_app: &tauri::AppHandle) -> PathBuf {
+    // In dev mode (debug build), use data/ from the project root
+    if cfg!(debug_assertions) {
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().join("data");
+    }
+    // In production, resources are bundled with _up_ prefix for "../data/*"
+    _app.path().resource_dir().unwrap().join("_up_").join("data")
+}
+
+/// Read file content, stripping UTF-8 BOM if present
+fn read_json_file(path: &std::path::Path) -> Result<Value, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Cannot read {:?}: {}", path, e))?;
+    let clean = content.strip_prefix('\u{FEFF}').unwrap_or(&content);
+    serde_json::from_str(clean)
+        .map_err(|e| format!("Invalid JSON in {:?}: {}", path, e))
 }
 
 #[tauri::command]
 fn read_schools(app: tauri::AppHandle) -> Result<Value, String> {
-    let path = data_dir(&app).join("schools.json");
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Cannot read schools.json: {}", e))?;
-    serde_json::from_str(&content)
-        .map_err(|e| format!("Invalid JSON in schools.json: {}", e))
+    read_json_file(&data_dir(&app).join("schools.json"))
+}
+
+#[tauri::command]
+fn read_districts(app: tauri::AppHandle) -> Result<Value, String> {
+    read_json_file(&data_dir(&app).join("districts.json"))
 }
 
 #[tauri::command]
@@ -25,10 +41,7 @@ fn read_overrides(app: tauri::AppHandle) -> Result<Value, String> {
     if !path.exists() {
         return Ok(serde_json::json!({}));
     }
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Cannot read overrides.json: {}", e))?;
-    serde_json::from_str(&content)
-        .map_err(|e| format!("Invalid JSON in overrides.json: {}", e))
+    read_json_file(&path)
 }
 
 #[tauri::command]
@@ -92,6 +105,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             read_schools,
+            read_districts,
             read_overrides,
             save_overrides,
             save_schools,

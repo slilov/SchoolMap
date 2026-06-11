@@ -2,7 +2,18 @@
 const MAP_CENTER = [42.698, 23.322];
 const MAP_ZOOM   = 12;
 
-// Данните са вградени в js/data.js като DISTRICTS_DATA и SCHOOLS_DATA
+// Tauri API — resolved lazily in loadData() to handle injection timing
+function getTauriInvoke() {
+  // Tauri 2 injects __TAURI_INTERNALS__ with invoke()
+  if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+    return window.__TAURI_INTERNALS__.invoke;
+  }
+  // Also check the public API (if withGlobalTauri or bundler used)
+  if (window.__TAURI__ && window.__TAURI__.core) {
+    return window.__TAURI__.core.invoke;
+  }
+  return null;
+}
 
 // Colour palette for the 18 districts (cycling)
 const DISTRICT_COLOURS = [
@@ -93,9 +104,7 @@ function safeExternalUrl(value) {
 // ── Districts ──────────────────────────────────────────────────
 let districtColourMap = {};
 
-function loadDistricts() {
-  const geojson = DISTRICTS_DATA;
-
+function loadDistricts(geojson) {
   let colourIndex = 0;
 
   L.geoJSON(geojson, {
@@ -185,9 +194,7 @@ function createSchoolIcon(finansiran, type) {
   });
 }
 
-function loadSchools() {
-  const geojson = SCHOOLS_DATA;
-
+function loadSchools(geojson) {
   schoolsLayer.clearLayers();
   schoolMarkers = [];
 
@@ -482,14 +489,33 @@ map.on('click', function (e) {
 // ── Bootstrap ──────────────────────────────────────────────────
 window.addEventListener('load', function () { map.invalidateSize(); });
 
-(function init() {
+async function loadData() {
+  const invoke = getTauriInvoke();
+  if (invoke) {
+    const [schools, districts] = await Promise.all([
+      invoke('read_schools'),
+      invoke('read_districts')
+    ]);
+    return { schools, districts };
+  }
+  // Fallback: use global variables from data.js (browser mode)
+  return {
+    schools: typeof SCHOOLS_DATA !== 'undefined' ? SCHOOLS_DATA : null,
+    districts: typeof DISTRICTS_DATA !== 'undefined' ? DISTRICTS_DATA : null
+  };
+}
+
+(async function init() {
   try {
-    loadDistricts();
-    loadSchools();
+    const data = await loadData();
+    if (data.districts) loadDistricts(data.districts);
+    if (data.schools) loadSchools(data.schools);
     setupFilterListeners();
   } catch (err) {
-    console.error(err);
-    loadingEl.textContent = 'Грешка: ' + err.message;
+    console.error('Init error:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    loadingEl.textContent = 'Грешка: ' + msg;
+    loadingEl.classList.remove('hidden');
     return;
   }
   hideLoading();
