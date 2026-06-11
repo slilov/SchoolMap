@@ -121,14 +121,15 @@ function toTitleCase(text) {
   const words = text.split(/\s+/);
   const result = [];
   for (const w of words) {
-    if (w.length <= 1) { result.push(w.toUpperCase()); continue; }
-    const upper = w.toUpperCase();
-    if (KNOWN_ABBR.has(upper)) { result.push(upper); continue; }
     const lower = w.toLowerCase();
+    // Check lowercase words first (и, в, с, etc.) — even single-char ones
     if (result.length > 0 && LOWERCASE_WORDS.has(lower)) {
       result.push(lower);
       continue;
     }
+    if (w.length <= 1) { result.push(w.toUpperCase()); continue; }
+    const upper = w.toUpperCase();
+    if (KNOWN_ABBR.has(upper)) { result.push(upper); continue; }
     result.push(w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
   }
   return result.join(' ');
@@ -224,53 +225,158 @@ function buildShortName(name) {
     : toTitleCase(cleaned);
 }
 
+// Abbreviations to expand in full names (short → full form)
+const ABBR_TO_FULL = [
+  ['НПМГ', 'Национална природо-математическа гимназия'],
+  ['НТБГ', 'Национална търговско-банкова гимназия'],
+  ['СГСАГ', 'Софийска гимназия по строителство, архитектура и геодезия'],
+  ['СГХСТ', 'Софийска гимназия по хлебни и сладкарски технологии'],
+  ['СМГ', 'Софийска математическа гимназия'],
+  ['СПГТ', 'Софийска професионална гимназия по туризъм'],
+  ['НПГПФ', 'Национална професионална гимназия по полиграфия и фотография'],
+  ['НПГПТО', 'Национална професионална гимназия по прецизна техника и оптика'],
+  ['НГДЕК', 'Национална гимназия за древни езици и култура'],
+  ['НМУ', 'Национално музикално училище'],
+  ['НУТИ', 'Национално училище за танцово изкуство'],
+  ['НУИИ', 'Национално училище за изящни изкуства'],
+  ['НСУ', 'Национално средно училище'],
+  ['ПГАВТ', 'Професионална гимназия по аудио-, видео- и телекомуникация'],
+  ['ПГПСТТ', 'Професионална гимназия по подемна, строителна и транспортна техника'],
+  ['ПГХВТ', 'Професионална гимназия по хранително-вкусови технологии'],
+  ['ПГЕБ', 'Професионална гимназия по екология и биотехнологии'],
+  ['ПГЕА', 'Професионална гимназия по електротехника и автоматика'],
+  ['ПГИТЕ', 'Професионална гимназия по информационни технологии и езици'],
+  ['ПГБДТФ', 'Професионална гимназия по банково дело, търговия и финанси'],
+  ['ПГИИТ', 'Професионална гимназия по икономика, информатика и туризъм'],
+  ['ПГТЕ', 'Професионална гимназия по транспорт и енергетика'],
+  ['ПГФК', 'Професионална гимназия по фризьорство и козметика'],
+  ['ПГТМД', 'Професионална гимназия по текстил и моден дизайн'],
+  ['ПГТКИ', 'Професионална гимназия по текстилни и кожени изделия'],
+  ['ПГЖТ', 'Професионална гимназия по железопътен транспорт'],
+  ['ПГМЕТ', 'Професионална гимназия по механоелектотехника'],
+  ['ПГСС', 'Професионална гимназия по селско стопанство'],
+  ['ПГО', 'Професионална гимназия по облекло'],
+  ['ПГЕ', 'Професионална гимназия по електроника'],
+  ['ПГТел', 'Професионална гимназия по телекомуникации'],
+  ['ПГТр', 'Професионална гимназия по транспорт'],
+  ['ПГОС', 'Професионална гимназия по охрана и сигурност'],
+  ['ПГТур', 'Професионална гимназия по туризъм'],
+  ['ПГТ', 'Професионална гимназия по транспорт'],
+  ['ЧПГ', 'Частна професионална гимназия'],
+  ['ЧПрГ', 'Частна профилирана гимназия'],
+  ['ЧЕГ', 'Частна езикова гимназия'],
+  ['ЧНГ', 'Частна немска гимназия'],
+  ['ПрГ', 'Профилирана гимназия'],
+  ['ПрЕГ', 'Профилирана езикова гимназия'],
+  ['СУЧЕМ', 'Средно училище за чужди езици и мениджмънт'],
+  ['СЕУ', 'Средно езиково училище'],
+  ['ГПИЕ', 'Гимназия с преподаване на испански език'],
+  ['ГИЧЕ', 'Гимназия с изучаване на чужд език'],
+  ['НЕГ', 'Немска езикова гимназия'],
+  ['ФЕГ', 'Френска езикова гимназия'],
+  ['ЕГ', 'Езикова гимназия'],
+  ['ССУ', 'Специализирано спортно училище'],
+  ['ФСГ', 'Финансово-стопанска гимназия'],
+  ['ЧСУ', 'Частно средно училище'],
+  ['ЧСЕУ', 'Частно средно езиково училище'],
+  ['ЧЕСУ', 'Частно езиково средно училище'],
+  ['ЧОУ', 'Частно основно училище'],
+  ['ЧНУ', 'Частно начално училище'],
+  ['СВГ', 'Сменно-вечерна гимназия'],
+  ['ВСУ', 'Вечерно средно училище'],
+  // Basic types last (shorter match)
+  ['СОУ', 'Средно училище'],
+  ['СУ', 'Средно училище'],
+  ['ОУ', 'Основно училище'],
+  ['НУ', 'Начално училище'],
+  ['ПГ', 'Професионална гимназия'],
+];
+
 function buildFullName(name) {
   if (!name) return name;
   let cleaned = cleanRawName(name);
 
-  // СОУ → СУ (абревиатура и пълна форма)
+  // СОУ → СУ first (before further processing)
   cleaned = cleaned.replace(/(?<![а-яА-ЯёЁ])СОУ(?![а-яА-ЯёЁ])/gi, 'СУ');
   cleaned = cleaned.replace(/ЧСОУ/gi, 'ЧСУ');
-  cleaned = cleaned.replace(/средно общообразователно училище/gi, 'Средно училище');
-  cleaned = cleaned.replace(/частно средно общообразователно училище/gi, 'Частно средно училище');
+  cleaned = cleaned.replace(/средно общообразователно училище/gi, 'средно училище');
+  cleaned = cleaned.replace(/частно средно общообразователно училище/gi, 'частно средно училище');
 
-  // If ALL CAPS — convert to mixed case
-  const hasNoCyrilLower = !/[а-я]/.test(cleaned);
-  const hasUpperRun = /[А-Я]{3,}/.test(cleaned);
+  // Extract leading number
+  let number = '';
+  let rest = cleaned;
+  const numMatch = cleaned.match(/^(\d+[-]?(?:во|ма|то|ро)?)\s+(.+)$/i);
+  if (numMatch) {
+    number = numMatch[1];
+    rest = numMatch[2];
+  }
+
+  // If ALL CAPS — convert to mixed case first
+  const hasNoCyrilLower = !/[а-я]/.test(rest);
+  const hasUpperRun = /[А-Я]{3,}/.test(rest);
   if (hasNoCyrilLower && hasUpperRun) {
-    let number = '';
-    let rest = cleaned;
-    const numMatch = cleaned.match(/^(\d+[-]?(?:ВО|МА|ТО|РО|во|ма|то|ро)?)\s+(.+)$/i);
-    if (numMatch) {
-      number = numMatch[1] + ' ';
-      rest = numMatch[2];
-    }
+    rest = rest.charAt(0).toUpperCase() + rest.slice(1).toLowerCase();
+  }
 
-    // Try to find type in dictionary
-    const lowerRest = rest.toLowerCase();
-    let typePart = null;
-    let patronPart = null;
-    for (const [key] of TYPE_ABBREVIATIONS) {
-      if (lowerRest.startsWith(key)) {
-        typePart = rest.substring(0, key.length);
-        patronPart = rest.substring(key.length).trim().replace(/^[,;]\s*/, '');
-        break;
-      }
-    }
+  // Try to expand abbreviation at start
+  const restUpper = rest.replace(/^\s+/, '');
 
-    if (typePart) {
-      const typeSentence = typePart.charAt(0).toUpperCase() + typePart.slice(1).toLowerCase();
-      if (patronPart) {
-        cleaned = number + typeSentence + ' ' + toTitleCase(patronPart);
-      } else {
-        cleaned = number + typeSentence;
+  // Handle "Частно ОУ ...", "Частна ПГ ..." patterns
+  const chastnoMatch = restUpper.match(/^(частн[оа])\s+/i);
+  if (chastnoMatch) {
+    const chastno = chastnoMatch[1].charAt(0).toUpperCase() + chastnoMatch[1].slice(1).toLowerCase();
+    const afterChastno = restUpper.substring(chastnoMatch[0].length);
+    for (const [abbr, full] of ABBR_TO_FULL) {
+      const re = new RegExp('^' + abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\s|$)', 'i');
+      if (re.test(afterChastno)) {
+        let patron = afterChastno.substring(abbr.length).trim().replace(/^[,;]\s*/, '');
+        // Build "Частно основно училище" from "Частно" + "Основно училище"
+        const fullType = chastno + ' ' + full.charAt(0).toLowerCase() + full.slice(1);
+        if (patron) {
+          patron = toTitleCase(patron);
+          patron = patron.replace(/\s*\(.*\)\s*$/, '').trim();
+          return (number ? number + ' ' : '') + fullType + ' ' + wrapPatron(patron);
+        }
+        return (number ? number + ' ' : '') + fullType;
       }
-    } else {
-      cleaned = number + rest.charAt(0).toUpperCase() + rest.slice(1).toLowerCase();
     }
   }
 
-  cleaned = cleaned.replace(/;\s*$/, '').trim();
+  for (const [abbr, full] of ABBR_TO_FULL) {
+    // Match abbreviation followed by space or end
+    const re = new RegExp('^' + abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\s|$)', 'i');
+    if (re.test(restUpper)) {
+      let patron = restUpper.substring(abbr.length).trim().replace(/^[,;]\s*/, '');
+      const typePart = full.charAt(0).toUpperCase() + full.slice(1);
+      if (patron) {
+        patron = toTitleCase(patron);
+        patron = patron.replace(/\s*\(.*\)\s*$/, '').trim();
+        const result = number ? number + ' ' + typePart + ' ' + wrapPatron(patron) : typePart + ' ' + wrapPatron(patron);
+        return result;
+      }
+      return number ? number + ' ' + typePart : typePart;
+    }
+  }
+
+  // Try to find type in dictionary (full text form)
+  const lowerRest = rest.toLowerCase();
+  for (const [key] of TYPE_ABBREVIATIONS) {
+    if (lowerRest.startsWith(key)) {
+      const typePart = key.charAt(0).toUpperCase() + key.slice(1);
+      let patron = rest.substring(key.length).trim().replace(/^[,;]\s*/, '');
+      if (patron) {
+        patron = toTitleCase(patron);
+        patron = patron.replace(/\s*\(.*\)\s*$/, '').trim();
+        const result = number ? number + ' ' + typePart + ' ' + wrapPatron(patron) : typePart + ' ' + wrapPatron(patron);
+        return result;
+      }
+      const result = number ? number + ' ' + typePart : typePart;
+      return result;
+    }
+  }
+
+  // No type recognized — just clean up
+  cleaned = (number ? number + ' ' + rest : rest).replace(/;\s*$/, '').trim();
   return cleaned;
 }
 
