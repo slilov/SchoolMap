@@ -486,6 +486,53 @@ map.on('click', function (e) {
   clearInfo();
 });
 
+// ── Refresh data from API ──────────────────────────────────────
+async function refreshData() {
+  const invoke = getTauriInvoke();
+  if (!invoke) return;
+
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.textContent = '⏳ Обновяване...';
+
+  try {
+    // Fetch fresh data from Sofiaplan API
+    const [schools, districts] = await Promise.all([
+      invoke('fetch_schools_from_api'),
+      invoke('fetch_districts_from_api')
+    ]);
+
+    // Save to local JSON files
+    await Promise.all([
+      invoke('save_schools', { data: schools }),
+      invoke('save_districts', { data: districts })
+    ]);
+
+    // Reload the map layers
+    districtsLayer.clearLayers();
+    districtColourMap = {};
+    loadDistricts(districts);
+    loadSchools(schools);
+    applyFilters();
+
+    btn.textContent = '✅ Обновено!';
+    setTimeout(() => { btn.textContent = '🔄 Обнови данни'; }, 2000);
+  } catch (err) {
+    console.error('Refresh error:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    btn.textContent = '❌ Грешка';
+    btn.title = msg;
+    setTimeout(() => {
+      btn.textContent = '🔄 Обнови данни';
+      btn.title = 'Обнови данните от API';
+    }, 3000);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-refresh').addEventListener('click', refreshData);
+
 // ── Bootstrap ──────────────────────────────────────────────────
 window.addEventListener('load', function () { map.invalidateSize(); });
 
