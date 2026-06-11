@@ -508,6 +508,10 @@ async function refreshData() {
       invoke('save_districts', { data: districts })
     ]);
 
+    // Apply normalization with overrides
+    const overrides = await invoke('read_overrides');
+    normalizeSchools(schools, overrides);
+
     // Reload the map layers
     districtsLayer.clearLayers();
     districtColourMap = {};
@@ -539,10 +543,13 @@ window.addEventListener('load', function () { map.invalidateSize(); });
 async function loadData() {
   const invoke = getTauriInvoke();
   if (invoke) {
-    const [schools, districts] = await Promise.all([
+    const [schools, districts, overrides] = await Promise.all([
       invoke('read_schools'),
-      invoke('read_districts')
+      invoke('read_districts'),
+      invoke('read_overrides')
     ]);
+    // Apply name normalization + overrides
+    normalizeSchools(schools, overrides);
     return { schools, districts };
   }
   // Fallback: use global variables from data.js (browser mode)
