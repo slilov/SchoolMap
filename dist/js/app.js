@@ -378,7 +378,76 @@ function buildSchoolInfo(feature) {
     hasValue(p.zabelezhka) ? `<p><span class="label">Забележка</span><br/><i>${escapeHtml(p.zabelezhka)}</i></p>` : ''
   ].join('');
 
-  return `<h3>${name}</h3>${rows || '<p>Няма допълнителни данни.</p>'}`;
+  return `<h3>${name}</h3>${rows || '<p>Няма допълнителни данни.</p>'}
+    <button class="btn-edit-school" onclick="editSchool(${p.id})">✏️ Редактирай имена</button>`;
+}
+
+// ── Inline school name editing ────────────────────────────────
+let currentEditId = null;
+
+function editSchool(id) {
+  const item = schoolMarkers.find(m => m.feature.properties.id === id);
+  if (!item) return;
+  const p = item.feature.properties;
+  currentEditId = id;
+
+  const html = `
+    <div class="edit-form">
+      <h3>Редактиране на имена</h3>
+      <label class="edit-label">Кратко име:
+        <input type="text" id="edit-short-name" value="${escapeHtml(p.short_name || '')}" />
+      </label>
+      <label class="edit-label">Пълно име:
+        <input type="text" id="edit-full-name" value="${escapeHtml(p.object_nam || '')}" />
+      </label>
+      <div class="edit-actions">
+        <button class="btn-save" onclick="saveSchoolEdit()">💾 Запази</button>
+        <button class="btn-cancel" onclick="cancelSchoolEdit()">Отказ</button>
+      </div>
+    </div>`;
+  showInfo(html);
+}
+
+async function saveSchoolEdit() {
+  const invoke = getTauriInvoke();
+  if (!invoke || currentEditId === null) return;
+
+  const shortName = document.getElementById('edit-short-name').value.trim();
+  const fullName = document.getElementById('edit-full-name').value.trim();
+
+  // Load current overrides, merge, save
+  let overrides = {};
+  try { overrides = await invoke('read_overrides'); } catch(e) {}
+
+  const id = String(currentEditId);
+  if (!overrides[id]) overrides[id] = {};
+  if (shortName) overrides[id].short_name = shortName;
+  if (fullName) overrides[id].object_nam = fullName;
+
+  await invoke('save_overrides', { data: overrides });
+
+  // Update in-memory feature
+  const item = schoolMarkers.find(m => m.feature.properties.id === currentEditId);
+  if (item) {
+    const p = item.feature.properties;
+    if (shortName) p.short_name = shortName;
+    if (fullName) p.object_nam = fullName;
+    // Update tooltip
+    item.marker.unbindTooltip();
+    item.marker.bindTooltip(escapeHtml(p.short_name || p.object_nam), {
+      permanent: false, direction: 'top', className: 'school-tooltip'
+    });
+  }
+
+  // Show updated info
+  if (item) showInfo(buildSchoolInfo(item.feature));
+  currentEditId = null;
+}
+
+function cancelSchoolEdit() {
+  const item = schoolMarkers.find(m => m.feature.properties.id === currentEditId);
+  if (item) showInfo(buildSchoolInfo(item.feature));
+  currentEditId = null;
 }
 
 // Multi-attribute live filtering

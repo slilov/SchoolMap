@@ -72,7 +72,7 @@ const TYPE_ABBREVIATIONS = [
   ['софийска духовна семинария', 'СДС'],
   ['финансово-стопанска гимназия', 'ФСГ'],
   // Частни общообразователни
-  ['частно средно общообразователно училище', 'ЧСОУ'],
+  ['частно средно общообразователно училище', 'ЧСУ'],
   ['частно средно езиково училище', 'ЧСЕУ'],
   ['частно средно училище по изкуства и чужди езици', 'ЧСУ ИЧЕ'],
   ['частно средно училище', 'ЧСУ'],
@@ -155,11 +155,13 @@ function buildShortName(name) {
       let rest = cleaned.substring(prefix.trimEnd().length).trim();
       rest = rest.replace(/^,\s*/, '');
       if (rest && /^(професионална|частна|гимназия|училище)/i.test(rest)) break;
+      // Replace obsolete ЧСОУ/ЧПСОУ with ЧСУ/ЧПСУ
+      let outPrefix = prefix.trimEnd().replace(/ЧСОУ/, 'ЧСУ').replace(/ЧПСОУ/, 'ЧПСУ');
       if (rest) {
         const patron = toTitleCase(rest);
-        return prefix.trimEnd() + ' ' + wrapPatron(patron);
+        return outPrefix + ' ' + wrapPatron(patron);
       }
-      return prefix.trimEnd();
+      return outPrefix;
     }
   }
 
@@ -174,9 +176,11 @@ function buildShortName(name) {
     cleanedRest = numMatch[2];
   }
 
-  // СОУ → СУ
-  nameForSearch = nameForSearch.replace(/\bсоу\b/g, 'су');
-  cleanedRest = cleanedRest.replace(/\bСОУ\b/gi, 'СУ');
+  // СОУ → СУ (word boundary \b doesn't work with Cyrillic)
+  nameForSearch = nameForSearch.replace(/(?<![а-яё])соу(?![а-яё])/gi, 'су');
+  nameForSearch = nameForSearch.replace(/чсоу/gi, 'чсу');
+  cleanedRest = cleanedRest.replace(/(?<![а-яА-ЯёЁ])СОУ(?![а-яА-ЯёЁ])/gi, 'СУ');
+  cleanedRest = cleanedRest.replace(/ЧСОУ/gi, 'ЧСУ');
 
   // Search type in dictionary
   let abbr = null;
@@ -224,8 +228,11 @@ function buildFullName(name) {
   if (!name) return name;
   let cleaned = cleanRawName(name);
 
-  // СОУ → СУ
-  cleaned = cleaned.replace(/\bСОУ\b/gi, 'СУ');
+  // СОУ → СУ (абревиатура и пълна форма)
+  cleaned = cleaned.replace(/(?<![а-яА-ЯёЁ])СОУ(?![а-яА-ЯёЁ])/gi, 'СУ');
+  cleaned = cleaned.replace(/ЧСОУ/gi, 'ЧСУ');
+  cleaned = cleaned.replace(/средно общообразователно училище/gi, 'Средно училище');
+  cleaned = cleaned.replace(/частно средно общообразователно училище/gi, 'Частно средно училище');
 
   // If ALL CAPS — convert to mixed case
   const hasNoCyrilLower = !/[а-я]/.test(cleaned);
