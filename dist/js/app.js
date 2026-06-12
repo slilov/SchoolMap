@@ -46,6 +46,7 @@ const schoolsLayer   = L.layerGroup().addTo(map);
 let schoolMarkers = [];
 const activeFilters = {
   searchQuery: '',
+  schoolNameQuery: '',
   financingTypes: ['1', '2', '3'],
   schoolType: 'all',
   activeProfiles: []
@@ -458,11 +459,19 @@ function applyFilters() {
     const p = item.feature.properties || {};
     const marker = item.marker;
 
-    // 1. Text Search matching (name, address, or note)
+    // 1. Text Search matching (name, address)
     const name = (p.object_nam || '').toLowerCase();
+    const shortName = (p.short_name || '').toLowerCase();
     const address = (p.adres || '').toLowerCase();
     const query = activeFilters.searchQuery.toLowerCase();
-    const matchesSearch = !query || name.includes(query) || address.includes(query);
+    const matchesSearch = !query || name.includes(query) || shortName.includes(query) || address.includes(query);
+
+    // 1b. School name search (prefix match — like filtering a dropdown)
+    const schoolQuery = activeFilters.schoolNameQuery.toLowerCase();
+    let matchesSchoolName = true;
+    if (schoolQuery) {
+      matchesSchoolName = shortName.startsWith(schoolQuery) || name.startsWith(schoolQuery);
+    }
 
     // 2. Financing matching
     const financing = String(p.finansiran);
@@ -476,7 +485,7 @@ function applyFilters() {
     const matchesProfiles = activeFilters.activeProfiles.length === 0 || 
       (p.profiles && p.profiles.some(prof => activeFilters.activeProfiles.includes(prof)));
 
-    const shouldShow = matchesSearch && matchesFinancing && matchesType && matchesProfiles;
+    const shouldShow = matchesSearch && matchesSchoolName && matchesFinancing && matchesType && matchesProfiles;
 
     if (shouldShow) {
       if (!schoolsLayer.hasLayer(marker)) {
@@ -494,10 +503,17 @@ function applyFilters() {
 }
 
 function setupFilterListeners() {
-  // Search text box
+  // Search text box (address/district)
   const searchInput = document.getElementById('search-input');
   searchInput.addEventListener('input', function (e) {
     activeFilters.searchQuery = e.target.value.trim();
+    applyFilters();
+  });
+
+  // School name search box
+  const schoolSearchInput = document.getElementById('school-search-input');
+  schoolSearchInput.addEventListener('input', function (e) {
+    activeFilters.schoolNameQuery = e.target.value.trim();
     applyFilters();
   });
 
