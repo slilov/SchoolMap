@@ -76,6 +76,28 @@ function clearInfo() {
   infoDetail.innerHTML = '';
 }
 
+// Delegated click on school names in district tree
+infoDetail.addEventListener('click', function (e) {
+  const li = e.target.closest('.district-school-item');
+  if (!li) return;
+  const schoolId = li.dataset.schoolId;
+  const item = schoolMarkers.find(m => String(m.feature.properties.id) === schoolId);
+  if (!item) return;
+
+  // Select marker on map
+  selectSchoolMarker(item.marker, item.feature);
+
+  // Show school info below the tree
+  const detailDiv = document.getElementById('district-school-detail');
+  if (detailDiv) {
+    detailDiv.innerHTML = '<hr/>' + buildSchoolInfo(item.feature);
+  }
+
+  // Highlight active item in the list
+  infoDetail.querySelectorAll('.district-school-item.active').forEach(el => el.classList.remove('active'));
+  li.classList.add('active');
+});
+
 // ── Loading indicator ──────────────────────────────────────────
 const loadingEl = document.createElement('div');
 loadingEl.id = 'loading';
@@ -196,7 +218,7 @@ function buildDistrictInfo(feature) {
   const name = escapeHtml(getDistrictName(feature));
   const districtCode = p.obns_num;
 
-  // Group schools in this district by type
+  // Group schools in this district by type (store id + name)
   const groups = {};
   let total = 0;
   for (const item of schoolMarkers) {
@@ -204,7 +226,10 @@ function buildDistrictInfo(feature) {
     if (sp.kod_rayon === districtCode) {
       const t = String(sp.type);
       if (!groups[t]) groups[t] = [];
-      groups[t].push(sp.short_name || sp.object_nam || '(без име)');
+      groups[t].push({
+        id: sp.id,
+        name: sp.short_name || sp.object_nam || '(без име)'
+      });
       total++;
     }
   }
@@ -215,15 +240,18 @@ function buildDistrictInfo(feature) {
     const sections = typeOrder
       .filter(t => groups[t])
       .map(t => {
-        const names = groups[t].sort();
-        const list = names.map(n => `<li>${escapeHtml(n)}</li>`).join('');
+        const items = groups[t].sort((a, b) => a.name.localeCompare(b.name, 'bg'));
+        const list = items.map(s =>
+          `<li class="district-school-item" data-school-id="${s.id}">${escapeHtml(s.name)}</li>`
+        ).join('');
         return `<details class="district-type-group">
           <summary>${escapeHtml(SCHOOL_TYPES[t] || t)} <span class="count">(${groups[t].length})</span></summary>
           <ul class="district-school-list">${list}</ul>
         </details>`;
       })
       .join('');
-    statsHtml = `<p><span class="label">Училища в района: ${total}</span></p>${sections}`;
+    statsHtml = `<p><span class="label">Училища в района: ${total}</span></p>${sections}
+      <div id="district-school-detail"></div>`;
   } else {
     statsHtml = '<p><em>Няма данни за училища в района</em></p>';
   }
