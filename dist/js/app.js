@@ -196,14 +196,15 @@ function buildDistrictInfo(feature) {
   const name = escapeHtml(getDistrictName(feature));
   const districtCode = p.obns_num;
 
-  // Count schools in this district by type
-  const counts = {};
+  // Group schools in this district by type
+  const groups = {};
   let total = 0;
   for (const item of schoolMarkers) {
     const sp = item.feature.properties || {};
     if (sp.kod_rayon === districtCode) {
       const t = String(sp.type);
-      counts[t] = (counts[t] || 0) + 1;
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(sp.short_name || sp.object_nam || '(без име)');
       total++;
     }
   }
@@ -211,12 +212,18 @@ function buildDistrictInfo(feature) {
   let statsHtml = '';
   if (total > 0) {
     const typeOrder = ['1', '2', '3', '4', '5', '6'];
-    const rows = typeOrder
-      .filter(t => counts[t])
-      .map(t => `<tr><td>${escapeHtml(SCHOOL_TYPES[t] || t)}</td><td style="text-align:right;padding-left:10px"><b>${counts[t]}</b></td></tr>`)
+    const sections = typeOrder
+      .filter(t => groups[t])
+      .map(t => {
+        const names = groups[t].sort();
+        const list = names.map(n => `<li>${escapeHtml(n)}</li>`).join('');
+        return `<details class="district-type-group">
+          <summary>${escapeHtml(SCHOOL_TYPES[t] || t)} <span class="count">(${groups[t].length})</span></summary>
+          <ul class="district-school-list">${list}</ul>
+        </details>`;
+      })
       .join('');
-    statsHtml = `<p><span class="label">Училища в района: ${total}</span></p>
-      <table class="district-stats">${rows}</table>`;
+    statsHtml = `<p><span class="label">Училища в района: ${total}</span></p>${sections}`;
   } else {
     statsHtml = '<p><em>Няма данни за училища в района</em></p>';
   }
@@ -235,22 +242,42 @@ const TYPE_COLOURS = {
   '6': '#795548'    // Специално/помощно — кафяво
 };
 
-function createSchoolIcon(finansiran, type) {
+function createSchoolIcon(finansiran, type, selected) {
   const letter = FINANCING_LETTERS[String(finansiran)] || 'У';
   const colour = TYPE_COLOURS[String(type)] || '#1565c0';
+  const scale = selected ? 2 : 1;
+  const w = 22 * scale, h = 30 * scale;
   return L.divIcon({
     className: '',
-    html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30">
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 22 30">
       <ellipse cx="11" cy="28" rx="5" ry="2" fill="rgba(0,0,0,0.25)"/>
       <path d="M11 0 C6.03 0 2 4.03 2 9 C2 16 11 28 11 28 C11 28 20 16 20 9 C20 4.03 15.97 0 11 0 Z"
             fill="${colour}" stroke="#fff" stroke-width="1.5"/>
       <text x="11" y="13" font-size="9" font-family="Arial" font-weight="bold"
             fill="#fff" text-anchor="middle">${letter}</text>
     </svg>`,
-    iconSize:   [22, 30],
-    iconAnchor: [11, 30],
-    popupAnchor:[0, -30]
+    iconSize:   [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor:[0, -h]
   });
+}
+
+let selectedSchoolMarker = null;
+
+function deselectSchoolMarker() {
+  if (selectedSchoolMarker) {
+    const sp = selectedSchoolMarker._schoolFeature.properties;
+    selectedSchoolMarker.setIcon(createSchoolIcon(sp.finansiran, sp.type, false));
+    selectedSchoolMarker = null;
+  }
+}
+
+function selectSchoolMarker(marker, feature) {
+  deselectSchoolMarker();
+  const sp = feature.properties;
+  marker.setIcon(createSchoolIcon(sp.finansiran, sp.type, true));
+  marker._schoolFeature = feature;
+  selectedSchoolMarker = marker;
 }
 
 function loadSchools(geojson) {
@@ -261,7 +288,8 @@ function loadSchools(geojson) {
     pointToLayer: function (feature, latlng) {
       // Enrich the feature with profiles dynamically
       enrichSchoolFeature(feature);
-      const marker = L.marker(latlng, { icon: createSchoolIcon(feature.properties.finansiran, feature.properties.type) });
+      const marker = L.marker(latlng, { icon: createSchoolIcon(feature.properties.finansiran, feature.properties.type, false) });
+      marker._schoolFeature = feature;
 
       // Bind tooltip directly to the marker (crucial for MultiPoint layers)
       const name = getSchoolShortName(feature);
@@ -271,18 +299,19 @@ function loadSchools(geojson) {
         className: 'school-tooltip'
       });
 
+      // Click handler on the marker itself
+      marker.on('click', function (e) {
+        if (e.originalEvent) e.originalEvent._infoHandled = true;
+        selectSchoolMarker(marker, feature);
+        showInfo(buildSchoolInfo(feature));
+      });
+
       schoolMarkers.push({
         feature: feature,
         marker: marker
       });
 
       return marker;
-    },
-    onEachFeature: function (feature, layer) {
-      layer.on('click', function (e) {
-        if (e.originalEvent) e.originalEvent._infoHandled = true;
-        showInfo(buildSchoolInfo(feature));
-      });
     }
   });
 
@@ -630,6 +659,7 @@ map.on('click', function (e) {
   // Don't clear if click was on a layer (district/school) that already handled it
   if (!e.originalEvent._infoHandled) {
     deselectDistrict();
+    deselectSchoolMarker();
     clearInfo();
   }
 });
