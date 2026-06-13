@@ -46,7 +46,7 @@ const schoolsLayer   = L.layerGroup().addTo(map);
 let schoolMarkers = [];
 const activeFilters = {
   searchQuery: '',
-  schoolNameQuery: '',
+  searchMode: 'name',
   financingTypes: ['1', '2', '3'],
   schoolType: 'all',
   activeProfiles: []
@@ -459,18 +459,18 @@ function applyFilters() {
     const p = item.feature.properties || {};
     const marker = item.marker;
 
-    // 1. Text Search matching (name, address)
-    const name = (p.object_nam || '').toLowerCase();
+    // 1. Search matching (unified — mode-dependent)
     const shortName = (p.short_name || '').toLowerCase();
+    const fullName = (p.object_nam || '').toLowerCase();
     const address = (p.adres || '').toLowerCase();
     const query = activeFilters.searchQuery.toLowerCase();
-    const matchesSearch = !query || name.includes(query) || shortName.includes(query) || address.includes(query);
-
-    // 1b. School name search (prefix match — like filtering a dropdown)
-    const schoolQuery = activeFilters.schoolNameQuery.toLowerCase();
-    let matchesSchoolName = true;
-    if (schoolQuery) {
-      matchesSchoolName = shortName.startsWith(schoolQuery) || name.startsWith(schoolQuery);
+    let matchesSearch = true;
+    if (query) {
+      if (activeFilters.searchMode === 'name') {
+        matchesSearch = shortName.startsWith(query) || fullName.startsWith(query);
+      } else {
+        matchesSearch = shortName.includes(query) || fullName.includes(query) || address.includes(query);
+      }
     }
 
     // 2. Financing matching
@@ -485,7 +485,7 @@ function applyFilters() {
     const matchesProfiles = activeFilters.activeProfiles.length === 0 || 
       (p.profiles && p.profiles.some(prof => activeFilters.activeProfiles.includes(prof)));
 
-    const shouldShow = matchesSearch && matchesSchoolName && matchesFinancing && matchesType && matchesProfiles;
+    const shouldShow = matchesSearch && matchesFinancing && matchesType && matchesProfiles;
 
     if (shouldShow) {
       if (!schoolsLayer.hasLayer(marker)) {
@@ -503,17 +503,27 @@ function applyFilters() {
 }
 
 function setupFilterListeners() {
-  // Search text box (address/district)
+  // Search — unified with mode toggle
   const searchInput = document.getElementById('search-input');
-  searchInput.addEventListener('input', function (e) {
-    activeFilters.searchQuery = e.target.value.trim();
+  const searchModeBtn = document.getElementById('search-mode-toggle');
+  let searchMode = 'name'; // 'name' = prefix match by school name, 'free' = includes everywhere
+
+  searchModeBtn.addEventListener('click', function () {
+    searchMode = searchMode === 'name' ? 'free' : 'name';
+    activeFilters.searchMode = searchMode;
+    searchModeBtn.textContent = searchMode === 'name' ? '🏫' : '🔍';
+    searchModeBtn.title = searchMode === 'name'
+      ? 'Режим: По име (prefix). Натисни за свободно търсене.'
+      : 'Режим: Свободно търсене. Натисни за търсене по име.';
+    searchInput.placeholder = searchMode === 'name'
+      ? 'Търсене по име на училище...'
+      : 'Свободно търсене (име, адрес...)';
     applyFilters();
+    searchInput.focus();
   });
 
-  // School name search box
-  const schoolSearchInput = document.getElementById('school-search-input');
-  schoolSearchInput.addEventListener('input', function (e) {
-    activeFilters.schoolNameQuery = e.target.value.trim();
+  searchInput.addEventListener('input', function (e) {
+    activeFilters.searchQuery = e.target.value.trim();
     applyFilters();
   });
 
