@@ -112,6 +112,15 @@ function safeExternalUrl(value) {
 
 // ── Districts ──────────────────────────────────────────────────
 let districtColourMap = {};
+let selectedDistrictLayer = null;
+
+function deselectDistrict() {
+  if (selectedDistrictLayer) {
+    selectedDistrictLayer.setStyle({ fillOpacity: 0.12, weight: 2 });
+    selectedDistrictLayer.closeTooltip();
+    selectedDistrictLayer = null;
+  }
+}
 
 function loadDistricts(geojson) {
   let colourIndex = 0;
@@ -143,14 +152,26 @@ function loadDistricts(geojson) {
 
       layer.on({
         mouseover: function (e) {
-          e.target.setStyle({ fillOpacity: 0.30, weight: 3 });
-          e.target.openTooltip();
+          if (selectedDistrictLayer !== e.target) {
+            e.target.setStyle({ fillOpacity: 0.30, weight: 3 });
+            e.target.openTooltip();
+          }
         },
         mouseout: function (e) {
-          e.target.setStyle({ fillOpacity: 0.12, weight: 2 });
+          if (selectedDistrictLayer !== e.target) {
+            e.target.setStyle({ fillOpacity: 0.12, weight: 2 });
+            e.target.closeTooltip();
+          }
         },
         click: function (e) {
           if (e.originalEvent) e.originalEvent._infoHandled = true;
+          // Deselect previous
+          deselectDistrict();
+          // Select this one
+          selectedDistrictLayer = e.target;
+          e.target.setStyle({ fillOpacity: 0.30, weight: 3 });
+          e.target.openTooltip();
+
           var info = '';
           try {
             info = buildDistrictInfo(feature);
@@ -608,6 +629,7 @@ document.getElementById('toggle-schools').addEventListener('change', function ()
 map.on('click', function (e) {
   // Don't clear if click was on a layer (district/school) that already handled it
   if (!e.originalEvent._infoHandled) {
+    deselectDistrict();
     clearInfo();
   }
 });
