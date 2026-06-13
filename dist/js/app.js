@@ -44,6 +44,14 @@ const districtsLayer = L.layerGroup().addTo(map);
 const schoolsLayer   = L.layerGroup().addTo(map);
 
 let schoolMarkers = [];
+const SCHOOL_TYPES = {
+  '1': 'Начално училище',
+  '2': 'Основно училище',
+  '3': 'Средно училище',
+  '4': 'Профилирана / специализирана гимназия или училище',
+  '5': 'Професионална гимназия',
+  '6': 'Специално / помощно училище'
+};
 const activeFilters = {
   searchQuery: '',
   searchMode: 'name',
@@ -142,9 +150,15 @@ function loadDistricts(geojson) {
           e.target.setStyle({ fillOpacity: 0.12, weight: 2 });
         },
         click: function (e) {
-          if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+          if (e.originalEvent) e.originalEvent._infoHandled = true;
+          var info = '';
+          try {
+            info = buildDistrictInfo(feature);
+          } catch (err) {
+            info = '<h3>Грешка</h3><p>' + err.message + '</p>';
+          }
+          showInfo(info);
           map.fitBounds(e.target.getBounds(), { padding: [40, 40] });
-          showInfo(buildDistrictInfo(feature));
         }
       });
     }
@@ -159,11 +173,34 @@ function getDistrictName(feature) {
 function buildDistrictInfo(feature) {
   const p = feature.properties || {};
   const name = escapeHtml(getDistrictName(feature));
-  const rows = [
-    hasValue(p.obns_num) ? `<p><span class="label">Номер</span><br/>Район ${escapeHtml(p.obns_num)}</p>` : '',
-    hasValue(p.obns_lat) ? `<p><span class="label">Латиница</span><br/>${escapeHtml(p.obns_lat)}</p>` : ''
-  ].join('');
-  return `<h3>Район ${name}</h3>${rows}`;
+  const districtCode = p.obns_num;
+
+  // Count schools in this district by type
+  const counts = {};
+  let total = 0;
+  for (const item of schoolMarkers) {
+    const sp = item.feature.properties || {};
+    if (sp.kod_rayon === districtCode) {
+      const t = String(sp.type);
+      counts[t] = (counts[t] || 0) + 1;
+      total++;
+    }
+  }
+
+  let statsHtml = '';
+  if (total > 0) {
+    const typeOrder = ['1', '2', '3', '4', '5', '6'];
+    const rows = typeOrder
+      .filter(t => counts[t])
+      .map(t => `<tr><td>${escapeHtml(SCHOOL_TYPES[t] || t)}</td><td style="text-align:right;padding-left:10px"><b>${counts[t]}</b></td></tr>`)
+      .join('');
+    statsHtml = `<p><span class="label">Училища в района: ${total}</span></p>
+      <table class="district-stats">${rows}</table>`;
+  } else {
+    statsHtml = '<p><em>Няма данни за училища в района</em></p>';
+  }
+
+  return `<h3>Район ${name}</h3>${statsHtml}`;
 }
 
 // ── Schools ────────────────────────────────────────────────────
@@ -222,7 +259,7 @@ function loadSchools(geojson) {
     },
     onEachFeature: function (feature, layer) {
       layer.on('click', function (e) {
-        if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+        if (e.originalEvent) e.originalEvent._infoHandled = true;
         showInfo(buildSchoolInfo(feature));
       });
     }
@@ -238,15 +275,6 @@ function loadSchools(geojson) {
   document.getElementById('visible-count').textContent = schoolMarkers.length;
 }
 
-// School type codes from Sofiaplan
-const SCHOOL_TYPES = {
-  '1': 'Начално училище',
-  '2': 'Основно училище',
-  '3': 'Средно училище',
-  '4': 'Профилирана / специализирана гимназия или училище',
-  '5': 'Професионална гимназия',
-  '6': 'Специално / помощно училище'
-};
 
 const FINANCING_LABELS = {
   '1': 'Държавно',
@@ -578,7 +606,10 @@ document.getElementById('toggle-schools').addEventListener('change', function ()
 
 // ── Close info on map click ────────────────────────────────────
 map.on('click', function (e) {
-  clearInfo();
+  // Don't clear if click was on a layer (district/school) that already handled it
+  if (!e.originalEvent._infoHandled) {
+    clearInfo();
+  }
 });
 
 // ── Refresh data from API ──────────────────────────────────────
