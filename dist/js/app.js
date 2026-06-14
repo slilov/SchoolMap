@@ -475,14 +475,11 @@ function buildSchoolInfo(feature) {
   }
   badgesHtml += '</div>';
 
-  const sofiaplanUrl = 'https://map.sofiaplan.bg/schools';
-
   const rows = [
     badgesHtml,
     hasValue(p.adres)      ? `<p><span class="label">Адрес</span><br/>${escapeHtml(p.adres)}</p>` : '',
     hasValue(p.kod_rayon)  ? `<p><span class="label">Район</span><br/>Район ${escapeHtml(p.kod_rayon)}</p>` : '',
     hasValue(p.br_paralel) ? `<p><span class="label">Брой паралелки</span><br/>${escapeHtml(p.br_paralel)}</p>` : '',
-    `<p><span class="label">Външна препратка</span><br/><a href="${sofiaplanUrl}" target="_blank" rel="noopener noreferrer" class="school-contact-link">🔗 Sofiaplan Карта на училищата</a></p>`,
     hasValue(p.zabelezhka) ? `<p><span class="label">Забележка</span><br/><i>${escapeHtml(p.zabelezhka)}</i></p>` : ''
   ].join('');
 
