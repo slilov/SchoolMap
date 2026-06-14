@@ -218,17 +218,29 @@ function buildDistrictInfo(feature) {
   const name = escapeHtml(getDistrictName(feature));
   const districtCode = p.obns_num;
 
-  // Group schools in this district by type (store id + name)
-  const groups = {};
+  const TYPE_DOTS = {
+    '1': '🟢', '2': '🔵', '3': '🟠',
+    '4': '🟣', '5': '🔴', '6': '🟤'
+  };
+
+  const FINANCING_TREE_LABELS = {
+    '1': 'Държавни',
+    '2': 'Общински',
+    '3': 'Частни'
+  };
+
+  // Group schools by financing, then list with type dot
+  const finGroups = { '1': [], '2': [], '3': [] };
   let total = 0;
   for (const item of schoolMarkers) {
     const sp = item.feature.properties || {};
     if (sp.kod_rayon === districtCode) {
-      const t = String(sp.type);
-      if (!groups[t]) groups[t] = [];
-      groups[t].push({
+      const fin = String(sp.finansiran || '2');
+      if (!finGroups[fin]) finGroups[fin] = [];
+      finGroups[fin].push({
         id: sp.id,
-        name: sp.short_name || sp.object_nam || '(без име)'
+        name: sp.short_name || sp.object_nam || '(без име)',
+        type: String(sp.type)
       });
       total++;
     }
@@ -236,16 +248,17 @@ function buildDistrictInfo(feature) {
 
   let statsHtml = '';
   if (total > 0) {
-    const typeOrder = ['1', '2', '3', '4', '5', '6'];
-    const sections = typeOrder
-      .filter(t => groups[t])
-      .map(t => {
-        const items = groups[t].sort((a, b) => a.name.localeCompare(b.name, 'bg'));
-        const list = items.map(s =>
-          `<li class="district-school-item" data-school-id="${s.id}">${escapeHtml(s.name)}</li>`
-        ).join('');
+    const finOrder = ['1', '2', '3'];
+    const sections = finOrder
+      .filter(f => finGroups[f] && finGroups[f].length > 0)
+      .map(f => {
+        const items = finGroups[f].sort((a, b) => a.name.localeCompare(b.name, 'bg'));
+        const list = items.map(s => {
+          const dot = TYPE_DOTS[s.type] || '⚪';
+          return `<li class="district-school-item" data-school-id="${s.id}">${dot} ${escapeHtml(s.name)}</li>`;
+        }).join('');
         return `<details class="district-type-group">
-          <summary>${escapeHtml(SCHOOL_TYPES[t] || t)} <span class="count">(${groups[t].length})</span></summary>
+          <summary>${FINANCING_TREE_LABELS[f] || f} <span class="count">(${finGroups[f].length})</span></summary>
           <ul class="district-school-list">${list}</ul>
         </details>`;
       })
