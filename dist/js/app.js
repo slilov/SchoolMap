@@ -672,6 +672,113 @@ async function refreshData() {
 
 document.getElementById('btn-refresh').addEventListener('click', refreshData);
 
+// ── Table Editor ──────────────────────────────────────────────
+const tableEditor = document.getElementById('table-editor');
+const namesTableBody = document.querySelector('#names-table tbody');
+let originalValues = {}; // id -> {short_name, object_nam}
+
+function openTableEditor() {
+  // Populate table with current data
+  namesTableBody.innerHTML = '';
+  originalValues = {};
+
+  const sorted = [...schoolMarkers].sort((a, b) => {
+    const na = a.feature.properties.short_name || a.feature.properties.object_nam || '';
+    const nb = b.feature.properties.short_name || b.feature.properties.object_nam || '';
+    return na.localeCompare(nb, 'bg');
+  });
+
+  for (const item of sorted) {
+    const p = item.feature.properties;
+    const id = String(p.id);
+    const shortName = p.short_name || '';
+    const fullName = p.object_nam || '';
+    originalValues[id] = { short_name: shortName, object_nam: fullName };
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(id)}</td>
+      <td><input type="text" data-id="${id}" data-field="short_name" value="${escapeHtml(shortName)}" /></td>
+      <td><input type="text" data-id="${id}" data-field="object_nam" value="${escapeHtml(fullName)}" /></td>`;
+    namesTableBody.appendChild(tr);
+  }
+
+  // Mark modified inputs on change
+  namesTableBody.addEventListener('input', function (e) {
+    if (e.target.tagName !== 'INPUT') return;
+    const id = e.target.dataset.id;
+    const field = e.target.dataset.field;
+    const orig = originalValues[id] ? originalValues[id][field] : '';
+    if (e.target.value !== orig) {
+      e.target.classList.add('modified');
+    } else {
+      e.target.classList.remove('modified');
+    }
+  });
+
+  tableEditor.classList.remove('hidden');
+}
+
+function closeTableEditor() {
+  tableEditor.classList.add('hidden');
+  namesTableBody.innerHTML = '';
+}
+
+async function saveTableEdits() {
+  const invoke = getTauriInvoke();
+  if (!invoke) return;
+
+  // Collect changes
+  const inputs = namesTableBody.querySelectorAll('input.modified');
+  if (inputs.length === 0) {
+    closeTableEditor();
+    return;
+  }
+
+  // Load current overrides
+  let overrides = {};
+  try { overrides = await invoke('read_overrides'); } catch(e) {}
+
+  const changes = {};
+  inputs.forEach(input => {
+    const id = input.dataset.id;
+    const field = input.dataset.field;
+    const value = input.value.trim();
+    if (!changes[id]) changes[id] = {};
+    changes[id][field] = value;
+  });
+
+  // Merge into overrides (use bracket notation for quotes)
+  for (const [id, fields] of Object.entries(changes)) {
+    if (!overrides[id]) overrides[id] = {};
+    for (const [field, value] of Object.entries(fields)) {
+      overrides[id][field] = value.replace(/\u201E/g, '[').replace(/\u201C/g, ']');
+    }
+  }
+
+  // Save
+  await invoke('save_overrides', { data: overrides });
+
+  // Update in-memory features
+  for (const [id, fields] of Object.entries(changes)) {
+    const item = schoolMarkers.find(m => String(m.feature.properties.id) === id);
+    if (!item) continue;
+    const p = item.feature.properties;
+    if (fields.short_name !== undefined) p.short_name = fields.short_name;
+    if (fields.object_nam !== undefined) p.object_nam = fields.object_nam;
+    // Update tooltip
+    item.marker.unbindTooltip();
+    item.marker.bindTooltip(escapeHtml(p.short_name || p.object_nam), {
+      permanent: false, direction: 'top', className: 'school-tooltip'
+    });
+  }
+
+  closeTableEditor();
+}
+
+document.getElementById('btn-edit-names').addEventListener('click', openTableEditor);
+document.getElementById('btn-close-table').addEventListener('click', closeTableEditor);
+document.getElementById('btn-save-table').addEventListener('click', saveTableEdits);
+
 // ── Bootstrap ──────────────────────────────────────────────────
 window.addEventListener('load', function () { map.invalidateSize(); });
 

@@ -96,10 +96,30 @@
     <div id="sidebar-footer">
       <p>Данни: <a href="https://sofiaplan.bg" target="_blank" rel="noopener noreferrer">Sofiaplan</a> &amp; <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></p>
       <button id="btn-refresh" title="Обнови данните от API">🔄 Обнови данни</button>
+      <button id="btn-edit-names" title="Редактирай имена на училищата">✏️ Редактирай имена</button>
     </div>
   </div>
 
   <div id="map" style="height:100vh;flex:1;"></div>
+
+  <!-- Table editor overlay -->
+  <div id="table-editor" class="hidden">
+    <div class="table-editor-header">
+      <h2>Редактиране на имена</h2>
+      <div class="table-editor-actions">
+        <button id="btn-save-table">💾 Запази промените</button>
+        <button id="btn-close-table">✖ Затвори</button>
+      </div>
+    </div>
+    <div class="table-editor-body">
+      <table id="names-table">
+        <thead>
+          <tr><th>№</th><th>Кратко име</th><th>Пълно име</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- Leaflet JS (локален) -->
   <script src="lib/leaflet.min.js"></script>

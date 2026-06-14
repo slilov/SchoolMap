@@ -282,7 +282,8 @@ body {
   text-decoration: underline;
 }
 
-#btn-refresh {
+#btn-refresh,
+#btn-edit-names {
   display: block;
   width: 100%;
   margin-top: 8px;
@@ -296,7 +297,8 @@ body {
   transition: background 0.2s;
 }
 
-#btn-refresh:hover:not(:disabled) {
+#btn-refresh:hover:not(:disabled),
+#btn-edit-names:hover {
   background: #bbdefb;
 }
 
@@ -560,4 +562,122 @@ body {
   font-weight: 600;
   color: #1565c0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Table Editor ─────────────────────────────────────────────── */
+#table-editor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+#table-editor.hidden {
+  display: none;
+}
+
+.table-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #1565c0;
+  color: #fff;
+}
+
+.table-editor-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.table-editor-actions button {
+  padding: 6px 14px;
+  margin-left: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#btn-save-table {
+  background: #4caf50;
+  color: #fff;
+}
+
+#btn-save-table:hover {
+  background: #388e3c;
+}
+
+#btn-close-table {
+  background: #e0e0e0;
+  color: #333;
+}
+
+#btn-close-table:hover {
+  background: #bdbdbd;
+}
+
+.table-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 20px;
+}
+
+#names-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+#names-table th {
+  position: sticky;
+  top: 0;
+  background: #f5f5f5;
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+}
+
+#names-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+#names-table td:first-child {
+  width: 40px;
+  text-align: center;
+  color: #888;
+}
+
+#names-table td input {
+  width: 100%;
+  border: 1px solid transparent;
+  padding: 3px 6px;
+  font-size: 13px;
+  border-radius: 3px;
+  background: transparent;
+}
+
+#names-table td input:focus {
+  border-color: #1565c0;
+  background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.15);
+}
+
+#names-table td input.modified {
+  background: #fff8e1;
+  border-color: #ffc107;
+}
+
+#names-table tr:hover {
+  background: #f5f9ff;
 }
